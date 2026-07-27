@@ -12,6 +12,7 @@ class YFinanceProvider(DataProvider):
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
+            
             return {
                 "industry": info.get("industry", "Unknown"),
                 "sector": info.get("sector", "Unknown"),
@@ -45,11 +46,19 @@ class YFinanceProvider(DataProvider):
             if receivables is None or str(receivables) == 'nan':
                 receivables = 0
                 
+            # Smart money data
+            inst_own = info.get("heldPercentInstitutions", 0) * 100
+            short_ratio = info.get("shortRatio", 0)
+            beta = info.get("beta", 1.0)
+                
             return {
                 "debt_to_mcap": total_debt / mcap if mcap else None,
                 "cash_to_mcap": total_cash / mcap if mcap else None,
-                "receivables_to_mcap": receivables / mcap if mcap else None
+                "receivables_to_mcap": receivables / mcap if mcap else None,
+                "institutional_ownership": round(inst_own, 2) if inst_own else 0,
+                "short_ratio": short_ratio if short_ratio else 0,
+                "beta": beta if beta else 1.0
             }
         except Exception as e:
             print(f"Error fetching financial ratios for {ticker}: {e}")
-            return {"debt_to_mcap": None, "cash_to_mcap": None, "receivables_to_mcap": None}
+            return {"debt_to_mcap": None, "cash_to_mcap": None, "receivables_to_mcap": None, "institutional_ownership": 0, "short_ratio": 0, "beta": 1.0}

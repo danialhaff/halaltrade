@@ -9,6 +9,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine
 } from 'recharts';
+import { createChart } from 'lightweight-charts';
 import './index.css';
 
 const API = 'http://localhost:8000';
@@ -48,6 +49,82 @@ function ProgressBar({ value, max, color }) {
 
 function Skeleton({ h = 16, w = '100%' }) {
   return <div className="skeleton" style={{ height: h, width: w, marginBottom: 8 }} />;
+}
+
+// ─── TradingView Chart Component ─────────────────────────────
+
+function TradingChart({ ticker }) {
+  const chartContainerRef = useRef();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!ticker) return;
+    
+    let chart;
+    const fetchAndRender = async () => {
+      setLoading(true); setError(null);
+      try {
+        const res = await axios.get(`${API}/api/chart/${ticker}`);
+        if (res.data.error) {
+          setError(res.data.error);
+          return;
+        }
+        
+        const data = res.data.data;
+        if (!chartContainerRef.current || !data) return;
+        
+        chartContainerRef.current.innerHTML = '';
+        
+        chart = createChart(chartContainerRef.current, {
+          layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8b96a8' },
+          grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+          crosshair: { mode: 1 },
+          rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+          timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
+          autoSize: true,
+        });
+
+        const candlestickSeries = chart.addCandlestickSeries({
+          upColor: '#00ffaa', downColor: '#ff4d4d', borderVisible: false,
+          wickUpColor: '#00ffaa', wickDownColor: '#ff4d4d',
+        });
+        candlestickSeries.setData(data);
+
+        const volumeSeries = chart.addHistogramSeries({
+          color: 'rgba(255, 255, 255, 0.1)', priceFormat: { type: 'volume' },
+          priceScaleId: '', scaleMargins: { top: 0.8, bottom: 0 }
+        });
+        
+        const volData = data.map(d => ({
+          time: d.time,
+          value: d.value,
+          color: d.close >= d.open ? 'rgba(0, 255, 170, 0.2)' : 'rgba(255, 77, 77, 0.2)'
+        }));
+        volumeSeries.setData(volData);
+        chart.timeScale().fitContent();
+        
+      } catch (err) {
+        setError('Failed to load chart data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAndRender();
+    return () => { if (chart) chart.remove(); };
+  }, [ticker]);
+
+  return (
+    <div className="panel fade-up" style={{ padding: '4px', height: '400px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between' }}>
+        <span className="section-title" style={{ margin: 0 }}><Activity size={14} /> Interactive Chart — {ticker}</span>
+        {loading && <span style={{ color: 'var(--amber)', fontSize: '0.8rem' }}>Loading...</span>}
+      </div>
+      {error && <div style={{ padding: '20px', color: 'var(--red)', textAlign: 'center' }}>{error}</div>}
+      <div ref={chartContainerRef} style={{ flex: 1, position: 'relative' }} />
+    </div>
+  );
 }
 
 // ─── Tabs ────────────────────────────────────────────────────
@@ -108,6 +185,9 @@ function TerminalTab({ portfolio }) {
             </span>
           </div>
 
+          {/* Main Chart */}
+          <TradingChart ticker={data.ticker} />
+
           {/* Main Analysis Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16 }}>
             {/* Conviction Gauge */}
@@ -126,17 +206,6 @@ function TerminalTab({ portfolio }) {
                 {ai?.conviction}<span style={{ fontSize: '1rem' }}>%</span>
               </div>
               <Badge signal={ai?.signal} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div className="label">TP</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.85rem', color: 'var(--green)' }}>+{ai?.target_profit_pct}%</div>
-                </div>
-                <div style={{ width: 1, background: 'var(--border)' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <div className="label">SL</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.85rem', color: 'var(--red)' }}>-{ai?.stop_loss_pct}%</div>
-                </div>
-              </div>
             </div>
 
             {/* Factor Breakdown */}
@@ -157,6 +226,42 @@ function TerminalTab({ portfolio }) {
               ))}
             </div>
           </div>
+
+          {/* Trade Setups Row */}
+          {ai?.trade_setups && (
+            <div className="panel fade-up" style={{ padding: '16px' }}>
+              <div className="section-title" style={{ marginBottom: '12px' }}>
+                <Target size={14} /> Recommended Trading Setups (Long Only)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                {Object.entries(ai.trade_setups).map(([style, setup]) => (
+                  <div key={style} style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                    <div style={{ textTransform: 'uppercase', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--blue)', marginBottom: '8px' }}>
+                      {style}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span className="label">Entry Point</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: '0.9rem', color: 'white' }}>${setup.entry.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span className="label">Take Profit</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.9rem', color: 'var(--green)' }}>${setup.tp.toFixed(2)}</span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--green)', marginLeft: '4px' }}>(+{setup.tp_pct}%)</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="label">Stop Loss</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.9rem', color: 'var(--red)' }}>${setup.sl.toFixed(2)}</span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--red)', marginLeft: '4px' }}>(-{setup.sl_pct}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* TA Indicators Row */}
           {ai?.ta_data && (
@@ -223,6 +328,18 @@ function TerminalTab({ portfolio }) {
             </div>
           </div>
 
+          {/* Smart Money Flow */}
+          {ai?.smart_money && (
+            <div className="panel fade-up">
+              <div className="section-title"><Target size={12} /> Institutional & Smart Money Flow</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                <StatCard label="Institutional Ownership" value={`${ai.smart_money.institutional_ownership?.toFixed(1)}%`} color={ai.smart_money.institutional_ownership > 50 ? 'var(--blue)' : 'white'} />
+                <StatCard label="Short Ratio (Days to Cover)" value={ai.smart_money.short_ratio?.toFixed(2)} color={ai.smart_money.short_ratio > 5 ? 'var(--red)' : 'var(--green)'} />
+                <StatCard label="Beta (Volatility vs Market)" value={ai.smart_money.beta?.toFixed(2)} color={ai.smart_money.beta > 1.2 ? 'var(--amber)' : 'white'} />
+              </div>
+            </div>
+          )}
+
           {/* VaR + NLP News Row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="panel fade-up accent-blue">
@@ -243,9 +360,17 @@ function TerminalTab({ portfolio }) {
             </div>
             <div className="panel fade-up">
               <div className="section-title"><Zap size={12} /> Live NLP News — VADER Sentiment</div>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, margin: 0, padding: 0 }}>
                 {ai?.headlines?.length > 0 ? ai.headlines.map((h, i) => (
-                  <li key={i} style={{ padding: '7px 10px', borderLeft: '3px solid var(--amber)', background: 'rgba(245,158,11,0.05)', fontSize: '0.75rem', lineHeight: 1.5 }}>{h}</li>
+                  <li key={i} style={{ padding: '10px 12px', borderLeft: '3px solid var(--amber)', background: 'rgba(245,158,11,0.05)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.7rem', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                      <span>{typeof h === 'string' ? 'News' : h.publisher}</span>
+                      <span>{typeof h === 'string' ? '' : h.time}</span>
+                    </div>
+                    <a href={typeof h === 'string' ? '#' : h.link} target="_blank" rel="noopener noreferrer" style={{ color: 'white', textDecoration: 'none' }}>
+                      {typeof h === 'string' ? h : h.title}
+                    </a>
+                  </li>
                 )) : <li style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>No recent news found.</li>}
               </ul>
             </div>
@@ -300,8 +425,8 @@ function SignalsTab() {
                 <th>Sentiment</th>
                 <th>RSI</th>
                 <th>MA Signal</th>
-                <th>Target Profit</th>
-                <th>Stop Loss</th>
+                <th>Intraday TP</th>
+                <th>Intraday SL</th>
               </tr>
             </thead>
             <tbody>
@@ -322,8 +447,8 @@ function SignalsTab() {
                   <td style={{ color: 'var(--amber)' }}>{s.sentiment_score}%</td>
                   <td style={{ color: s.rsi > 70 ? 'var(--red)' : s.rsi < 30 ? 'var(--green)' : 'var(--muted)' }}>{s.rsi?.toFixed(1) || 'N/A'}</td>
                   <td>{s.golden_cross === true ? <span style={{ color: 'var(--green)' }}>Golden ✓</span> : s.golden_cross === false ? <span style={{ color: 'var(--red)' }}>Death ✗</span> : '—'}</td>
-                  <td style={{ color: 'var(--green)' }}>+{s.target_profit_pct}%</td>
-                  <td style={{ color: 'var(--red)' }}>-{s.stop_loss_pct}%</td>
+                  <td style={{ color: 'var(--green)' }}>${s.trade_setups?.intraday?.tp?.toFixed(2)}</td>
+                  <td style={{ color: 'var(--red)' }}>${s.trade_setups?.intraday?.sl?.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

@@ -4,8 +4,12 @@ import sqlite3
 import pandas as pd
 import yfinance as yf
 import numpy as np
+import requests_cache
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
+# Install global caching for all HTTP requests (e.g. yfinance, news). Cache lasts 5 minutes.
+requests_cache.install_cache('alphaquant_cache', expire_after=300)
 
 from core.config import DB_PATH
 from screener.shariah_engine import ShariahEngine, MAX_DEBT_RATIO, MAX_CASH_RATIO, MAX_RECEIVABLES_RATIO
@@ -252,7 +256,32 @@ def get_audit_log(limit: int = 50):
 
 
 # ─────────────────────────────────────────────────────────────
-# ENDPOINT 8: WebSocket Live Price Stream
+# ENDPOINT 8: TradingView Chart Data (Chart Tab)
+# ─────────────────────────────────────────────────────────────
+@app.get("/api/chart/{ticker}")
+def get_chart_data(ticker: str, period: str = "6mo"):
+    try:
+        df = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+        if df.empty:
+            return {"error": "No chart data found"}
+            
+        chart_data = []
+        for date, row in df.iterrows():
+            chart_data.append({
+                "time": date.strftime('%Y-%m-%d'),
+                "open": float(row['Open'].squeeze()),
+                "high": float(row['High'].squeeze()),
+                "low": float(row['Low'].squeeze()),
+                "close": float(row['Close'].squeeze()),
+                "value": float(row['Volume'].squeeze()) # Using 'value' for the volume histogram
+            })
+            
+        return {"data": chart_data}
+    except Exception as e:
+        return {"error": str(e)}
+
+# ─────────────────────────────────────────────────────────────
+# ENDPOINT 9: WebSocket Live Price Stream
 # ─────────────────────────────────────────────────────────────
 @app.websocket("/ws/price/{ticker}")
 async def websocket_price(websocket: WebSocket, ticker: str):

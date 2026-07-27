@@ -1,5 +1,6 @@
 import yfinance as yf
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import time
 
 class NLPEngine:
     def __init__(self):
@@ -8,7 +9,7 @@ class NLPEngine:
     def get_news_sentiment(self, ticker: str) -> dict:
         """
         Fetches live news for the ticker and scores the sentiment using VADER NLP.
-        Returns a 0-100 score and the top headlines.
+        Returns a 0-100 score and the top headlines with publisher and link.
         """
         try:
             asset = yf.Ticker(ticker)
@@ -21,13 +22,26 @@ class NLPEngine:
             headlines = []
             
             # Analyze top 5 recent articles
-            limit = min(5, len(news))
+            limit = min(8, len(news))
             for i in range(limit):
-                title = news[i].get('title', '')
+                article = news[i]
+                title = article.get('title', '')
                 if title:
                     sentiment = self.analyzer.polarity_scores(title)
                     total_compound += sentiment['compound']
-                    headlines.append(title)
+                    
+                    # Convert unix timestamp to readable string if available
+                    pub_time = article.get('providerPublishTime', 0)
+                    time_str = ""
+                    if pub_time:
+                        time_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(pub_time))
+                        
+                    headlines.append({
+                        "title": title,
+                        "publisher": article.get('publisher', 'News'),
+                        "link": article.get('link', '#'),
+                        "time": time_str
+                    })
             
             # Average compound score (-1 to +1)
             avg_compound = total_compound / limit
@@ -48,4 +62,4 @@ class NLPEngine:
                 "headlines": headlines
             }
         except Exception as e:
-            return {"score": 50, "reason": "Error fetching news sentiment.", "headlines": []}
+            return {"score": 50, "reason": f"Error fetching news: {e}", "headlines": []}
