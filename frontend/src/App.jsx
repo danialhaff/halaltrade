@@ -154,7 +154,7 @@ function HomeTab() {
         {/* Upcoming IPOs */}
         <div className="panel fade-up accent-blue">
           <div className="section-title"><TrendingUp size={14} /> Global Upcoming IPOs</div>
-          <table className="data-table" style={{ marginTop: 8 }}>
+          <div className="table-responsive"><table className="data-table" style={{ marginTop: 8 }}>
             <thead>
               <tr>
                 <th>Company</th>
@@ -175,14 +175,14 @@ function HomeTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         {/* Earnings Calendar */}
         <div className="panel fade-up accent-amber">
           <div className="section-title"><Target size={14} /> Upcoming Earnings (Watchlist)</div>
           {earnings.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No upcoming earnings found.</div> : (
-            <table className="data-table" style={{ marginTop: 8 }}>
+            <div className="table-responsive"><table className="data-table" style={{ marginTop: 8 }}>
               <thead><tr><th>Ticker</th><th>Price</th><th style={{ textAlign: 'right' }}>Earnings Date</th></tr></thead>
               <tbody>
                 {earnings.slice(0, 5).map((e, i) => (
@@ -193,7 +193,7 @@ function HomeTab() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
 
@@ -226,7 +226,7 @@ function HomeTab() {
       <div className="panel fade-up" style={{ marginTop: '8px' }}>
         <div className="section-title"><Activity size={14} /> Global Market Screener (Shariah-Compliant)</div>
         <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
-          <table className="data-table">
+          <div className="table-responsive"><table className="data-table">
             <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 10 }}>
               <tr>
                 <th>Symbol</th>
@@ -261,7 +261,7 @@ function HomeTab() {
                 ))
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     </div>
@@ -659,7 +659,7 @@ function SignalsTab() {
 
       {!loading && signals.length > 0 && (
         <div className="panel fade-up" style={{ padding: 0 }}>
-          <table className="data-table">
+          <div className="table-responsive"><table className="data-table">
             <thead>
               <tr>
                 <th>Ticker</th>
@@ -697,7 +697,7 @@ function SignalsTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>
@@ -852,7 +852,7 @@ function AuditTab() {
             No audit entries found. Run the bot to generate audit records.
           </div>
         ) : (
-          <table className="data-table">
+          <div className="table-responsive"><table className="data-table">
             <thead>
               <tr>
                 {Object.keys(logs[0] || {}).map(k => <th key={k}>{k}</th>)}
@@ -867,7 +867,7 @@ function AuditTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
@@ -1134,7 +1134,7 @@ function JournalTab({ portfolio }) {
           <div className="panel">
             <div className="section-title"><FileText size={14} /> Trade History</div>
             {trades.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No trades logged yet.</div> : (
-              <table className="data-table">
+              <div className="table-responsive"><table className="data-table">
                 <thead>
                   <tr>
                     <th>Date</th><th>Ticker</th><th>Action</th><th>Entry $</th><th>Qty</th><th>Signal</th><th>Exit $</th><th>P&L</th><th>Close</th>
@@ -1164,7 +1164,7 @@ function JournalTab({ portfolio }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
         </div>
