@@ -35,29 +35,9 @@ shariah_engine = ShariahEngine(provider)
 multi_engine = MultiFactorEngine(provider)
 quant_math = QuantMathEngine()
 
-# Expanded Global Halal watchlist (US, China ADRs, Malaysia)
 WATCHLIST = [
-    # US Tech & Global Giants
-    "AAPL", "NVDA", "MSFT", "TSLA", "AMZN", "GOOGL", "META", "AVGO", "ADBE", "CRM", "AMD", "QCOM", "ASML",
-    # China (ADRs)
-    "BABA", "PDD", "JD", "BIDU", "NTES", "LI",
-    # Malaysia (Bursa - using .KL suffix)
-    "5183.KL", # Petronas Chemicals
-    "6033.KL", # Petronas Gas
-    "5225.KL", # IHH Healthcare
-    "0166.KL", # Inari
-    "7277.KL", # Dialog
-    "5168.KL", # Hartalega
-    "7113.KL", # Top Glove
-    "4707.KL", # Nestle Malaysia
-    "4197.KL", # Sime Darby
-    "1961.KL", # IOI Corp
-    # Other Shariah-Compliant US / Global 
-    "JNJ", "PFE", "NKE", "PEP", "KO", "MCD", "SBUX", "LULU", "INTC",
-    # Crypto (Shariah Scholars allowed list)
-    "BTC-USD", "ETH-USD",
-    # Islamic Indices & Commodities
-    "SPUS", "HLAL", "UMMA", "SPSK", "GLD", "SLV"
+    "AAPL", "NVDA", "MSFT", "TSLA", "AMZN",
+    "BABA", "5183.KL", "BTC-USD", "SPUS", "GLD"
 ]
 
 
@@ -213,7 +193,7 @@ def get_signals():
             return {"ticker": ticker, "signal": "ERROR", "conviction": 0, "error": str(e)}
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         results = list(executor.map(fetch_signal, WATCHLIST))
 
     results.sort(key=lambda x: x.get("conviction", 0), reverse=True)
@@ -295,7 +275,7 @@ def get_watchlist():
             return {"ticker": ticker, "price": 0, "change_pct": 0, "error": str(e)}
 
     data = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         raw_data = list(executor.map(fetch_market_data, WATCHLIST))
         data = [d for d in raw_data if "error" not in d]
 
@@ -852,7 +832,7 @@ def get_earnings_calendar():
             return None
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         raw = list(executor.map(fetch_earnings, stock_tickers[:20]))  # Limit to 20
     results = [r for r in raw if r is not None]
     results.sort(key=lambda x: x["next_earnings"])
