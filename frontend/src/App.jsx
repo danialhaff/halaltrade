@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  ShieldCheck, Activity, DollarSign, Crosshair, Search,
-  TrendingUp, BarChart2, FileText, Zap, RefreshCw,
-  ArrowUpRight, ArrowDownRight, Minus, Target, AlertTriangle
+import { 
+  Crosshair, ShieldCheck, Zap, BarChart2, Activity, Target, AlertTriangle, FileText, Home, TrendingUp, Globe, RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
+import logoImg from './logo.png';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine
 } from 'recharts';
-import { createChart } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import './index.css';
 
 const API = 'http://localhost:8000';
@@ -51,12 +50,231 @@ function Skeleton({ h = 16, w = '100%' }) {
   return <div className="skeleton" style={{ height: h, width: w, marginBottom: 8 }} />;
 }
 
+// ─── Home Dashboard Tab ──────────────────────────────────────
+
+function HomeTab() {
+  const [data, setData] = useState(null);
+  const [ipos, setIpos] = useState([]);
+  const [earnings, setEarnings] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [watchlistLoading, setWatchlistLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch fast dashboard components
+    const fetchDashboard = async () => {
+      try {
+        const [dashRes, ipoRes, earnRes] = await Promise.all([
+          axios.get(`${API}/api/market/dashboard`),
+          axios.get(`${API}/api/market/ipos`),
+          axios.get(`${API}/api/earnings`)
+        ]);
+        setData(dashRes.data);
+        setIpos(ipoRes.data.ipos || []);
+        setEarnings(earnRes.data.earnings || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Fetch slow watchlist component separately
+    const fetchWatchlist = async () => {
+      try {
+        const watchRes = await axios.get(`${API}/api/watchlist`);
+        setWatchlist(watchRes.data.watchlist || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setWatchlistLoading(false);
+      }
+    };
+
+    fetchDashboard();
+    fetchWatchlist();
+  }, []);
+
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="panel fade-up"><Skeleton h={150} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="panel fade-up"><Skeleton h={300} /></div>
+        <div className="panel fade-up"><Skeleton h={300} /></div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* VIX & Macro Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16 }}>
+        {/* VIX Fear Gauge */}
+        <div className={`panel fade-up ${data?.vix?.value > 25 ? 'accent-red' : data?.vix?.value > 15 ? 'accent-amber' : 'accent-green'}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+          <div className="section-title" style={{ width: '100%', textAlign: 'left', marginBottom: 16 }}><AlertTriangle size={14} /> Volatility Index (VIX)</div>
+          <div className="val-lg" style={{ fontSize: '3rem', color: data?.vix?.value > 25 ? 'var(--red)' : data?.vix?.value > 15 ? 'var(--amber)' : 'var(--green)' }}>
+            {data?.vix?.value}
+          </div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 600, marginTop: 8, color: 'white' }}>{data?.vix?.status}</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: '0.85rem', color: data?.vix?.change_pct >= 0 ? 'var(--red)' : 'var(--green)', marginTop: 4 }}>
+            {data?.vix?.change_pct >= 0 ? '+' : ''}{data?.vix?.change_pct}% Today
+          </div>
+        </div>
+
+        {/* Top AI Picks */}
+        <div className="panel fade-up">
+          <div className="section-title"><Target size={14} /> My Halal Trade AI Picks</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
+            {data?.top_picks?.map(pick => (
+              <div key={pick.ticker} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8, padding: 16, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: 'var(--green)' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: '1.4rem', fontWeight: 800, fontFamily: 'var(--mono)' }}>{pick.ticker}</span>
+                  <span style={{ background: 'rgba(0,255,170,0.1)', color: 'var(--green)', padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700 }}>{pick.signal}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.8rem' }}>
+                  <span className="label">Conviction</span>
+                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>{pick.conviction}%</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.8rem' }}>
+                  <span className="label">Target Profit</span>
+                  <span style={{ color: 'white', fontFamily: 'var(--mono)' }}>+{pick.target_profit_pct}%</span>
+                </div>
+              </div>
+            ))}
+            {(!data?.top_picks || data.top_picks.length === 0) && (
+              <div style={{ color: 'var(--muted)', fontSize: '0.85rem', gridColumn: 'span 3', textAlign: 'center', padding: '20px' }}>No Strong Buy signals currently available.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Upcoming IPOs */}
+        <div className="panel fade-up accent-blue">
+          <div className="section-title"><TrendingUp size={14} /> Global Upcoming IPOs</div>
+          <table className="data-table" style={{ marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Ticker</th>
+                <th>Sector</th>
+                <th style={{ textAlign: 'right' }}>Est. Valuation</th>
+                <th style={{ textAlign: 'right' }}>Expected</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ipos.map((ipo, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600, color: 'white' }}>{ipo.company}</td>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>{ipo.symbol}</td>
+                  <td style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{ipo.sector}</td>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--mono)' }}>{ipo.est_valuation}</td>
+                  <td style={{ textAlign: 'right', fontSize: '0.8rem' }}>{ipo.expected_date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Earnings Calendar */}
+        <div className="panel fade-up accent-amber">
+          <div className="section-title"><Target size={14} /> Upcoming Earnings (Watchlist)</div>
+          {earnings.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No upcoming earnings found.</div> : (
+            <table className="data-table" style={{ marginTop: 8 }}>
+              <thead><tr><th>Ticker</th><th>Price</th><th style={{ textAlign: 'right' }}>Earnings Date</th></tr></thead>
+              <tbody>
+                {earnings.slice(0, 5).map((e, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600, color: 'white' }}>{e.ticker}</td>
+                    <td style={{ fontFamily: 'var(--mono)' }}>${e.price.toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--amber)' }}>{e.next_earnings}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Global Market News */}
+        <div className="panel fade-up">
+          <div className="section-title"><Globe size={14} /> Global Macro News</div>
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8, margin: 0, padding: 0, marginTop: 8 }}>
+            {data?.market_news?.length > 0 ? data.market_news.map((h, i) => (
+              <li key={i} style={{ padding: '12px 14px', borderLeft: '3px solid var(--purple)', background: 'rgba(168, 85, 247, 0.05)', fontSize: '0.85rem', lineHeight: 1.4, borderRadius: '0 4px 4px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                  <span>{typeof h === 'string' ? 'Macro' : h.publisher}</span>
+                  <span>{typeof h === 'string' ? '' : h.time}</span>
+                </div>
+                <a href={typeof h === 'string' ? '#' : h.link} target="_blank" rel="noopener noreferrer" style={{ color: 'white', textDecoration: 'none', fontWeight: 500 }}>
+                  {typeof h === 'string' ? h : h.title}
+                </a>
+                {typeof h !== 'string' && h.effect && (
+                  <div style={{ marginTop: '6px', fontSize: '0.75rem', color: h.effect.includes('Bullish') ? 'var(--green)' : h.effect.includes('Bearish') || h.effect.includes('Negative') || h.effect.includes('High volatility') ? 'var(--red)' : 'var(--blue)' }}>
+                    <span style={{ fontWeight: 600 }}>AI Remark: </span>
+                    {h.effect}
+                  </div>
+                )}
+              </li>
+            )) : <li style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>No recent macro news found.</li>}
+          </ul>
+        </div>
+      </div>
+
+      {/* Global Watchlist Overview */}
+      <div className="panel fade-up" style={{ marginTop: '8px' }}>
+        <div className="section-title"><Activity size={14} /> Global Market Screener (Shariah-Compliant)</div>
+        <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
+          <table className="data-table">
+            <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 10 }}>
+              <tr>
+                <th>Symbol</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th>Volume</th>
+                <th>Market Cap</th>
+                <th>52W High</th>
+                <th>52W Low</th>
+              </tr>
+            </thead>
+            <tbody>
+              {watchlistLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skel-${i}`}>
+                    <td colSpan={7}><Skeleton h={24} /></td>
+                  </tr>
+                ))
+              ) : (
+                watchlist.map(item => (
+                  <tr key={item.ticker}>
+                    <td style={{ fontWeight: 600, color: 'white' }}>{item.ticker}</td>
+                    <td>${item.price?.toFixed(2) || '—'}</td>
+                    <td style={{ color: item.change_pct >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                      {item.change_pct >= 0 ? '+' : ''}{item.change_pct?.toFixed(2)}%
+                    </td>
+                    <td>{item.volume?.toLocaleString() || '—'}</td>
+                    <td>{item.market_cap ? `$${(item.market_cap / 1e9).toFixed(2)}B` : '—'}</td>
+                    <td>${item.week52_high?.toFixed(2) || '—'}</td>
+                    <td>${item.week52_low?.toFixed(2) || '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── TradingView Chart Component ─────────────────────────────
 
 function TradingChart({ ticker }) {
   const chartContainerRef = useRef();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [period, setPeriod] = useState('6mo');
 
   useEffect(() => {
     if (!ticker) return;
@@ -65,7 +283,7 @@ function TradingChart({ ticker }) {
     const fetchAndRender = async () => {
       setLoading(true); setError(null);
       try {
-        const res = await axios.get(`${API}/api/chart/${ticker}`);
+        const res = await axios.get(`${API}/api/chart/${ticker}?period=${period}`);
         if (res.data.error) {
           setError(res.data.error);
           return;
@@ -85,13 +303,13 @@ function TradingChart({ ticker }) {
           autoSize: true,
         });
 
-        const candlestickSeries = chart.addCandlestickSeries({
+        const candlestickSeries = chart.addSeries(CandlestickSeries, {
           upColor: '#00ffaa', downColor: '#ff4d4d', borderVisible: false,
           wickUpColor: '#00ffaa', wickDownColor: '#ff4d4d',
         });
         candlestickSeries.setData(data);
 
-        const volumeSeries = chart.addHistogramSeries({
+        const volumeSeries = chart.addSeries(HistogramSeries, {
           color: 'rgba(255, 255, 255, 0.1)', priceFormat: { type: 'volume' },
           priceScaleId: '', scaleMargins: { top: 0.8, bottom: 0 }
         });
@@ -105,7 +323,8 @@ function TradingChart({ ticker }) {
         chart.timeScale().fitContent();
         
       } catch (err) {
-        setError('Failed to load chart data');
+        console.error("Chart Error:", err);
+        setError(`Failed to load chart data: ${err.message || String(err)}`);
       } finally {
         setLoading(false);
       }
@@ -113,13 +332,39 @@ function TradingChart({ ticker }) {
     
     fetchAndRender();
     return () => { if (chart) chart.remove(); };
-  }, [ticker]);
+  }, [ticker, period]);
+
+  const timeframes = [
+    { label: '1W', val: '1wk' },
+    { label: '1M', val: '1mo' },
+    { label: '3M', val: '3mo' },
+    { label: '6M', val: '6mo' },
+    { label: 'YTD', val: 'ytd' },
+    { label: '1Y', val: '1y' },
+    { label: '2Y', val: '2y' },
+    { label: '5Y', val: '5y' }
+  ];
 
   return (
     <div className="panel fade-up" style={{ padding: '4px', height: '400px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="section-title" style={{ margin: 0 }}><Activity size={14} /> Interactive Chart — {ticker}</span>
-        {loading && <span style={{ color: 'var(--amber)', fontSize: '0.8rem' }}>Loading...</span>}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {loading && <span style={{ color: 'var(--amber)', fontSize: '0.8rem', marginRight: '10px' }}>Loading...</span>}
+          {timeframes.map(t => (
+            <button 
+              key={t.val} 
+              onClick={() => setPeriod(t.val)}
+              style={{
+                background: period === t.val ? 'var(--blue)' : 'rgba(255,255,255,0.1)',
+                border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px',
+                fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'var(--mono)', transition: 'background 0.2s'
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
       {error && <div style={{ padding: '20px', color: 'var(--red)', textAlign: 'center' }}>{error}</div>}
       <div ref={chartContainerRef} style={{ flex: 1, position: 'relative' }} />
@@ -643,7 +888,7 @@ function WatchlistStrip() {
   if (items.length === 0) return null;
 
   return (
-    <div style={{ borderBottom: '1px solid var(--border)', padding: '6px 24px', background: 'rgba(0,0,0,0.3)' }}>
+    <div className="ticker-strip-wrapper" style={{ borderBottom: '1px solid var(--border)', padding: '6px 24px', background: 'rgba(0,0,0,0.3)' }}>
       <div className="ticker-strip">
         {items.map(t => (
           <div key={t.ticker} className="ticker-item">
@@ -654,6 +899,373 @@ function WatchlistStrip() {
             </span>
           </div>
         ))}
+        {items.map(t => (
+          <div key={`${t.ticker}-dup`} className="ticker-item">
+            <span className="ticker-symbol">{t.ticker}</span>
+            <span className="ticker-price">${t.price?.toFixed(2) ?? '—'}</span>
+            <span className={`ticker-change ${t.change_pct >= 0 ? 'up' : 'down'}`}>
+              {t.change_pct >= 0 ? '+' : ''}{t.change_pct?.toFixed(2)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Simulator Tab ──────────────────────────────────────────
+
+function SimulatorTab({ refreshPortfolio, portfolio }) {
+  const [equity, setEquity] = useState(portfolio.equity || 10000);
+  const [strategy, setStrategy] = useState(portfolio.active_strategy || 'ai_quant');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (portfolio.equity) setEquity(portfolio.equity);
+    if (portfolio.active_strategy) setStrategy(portfolio.active_strategy);
+  }, [portfolio]);
+
+  const handleSimulate = async () => {
+    setSaving(true);
+    try {
+      await axios.post(`${API}/api/portfolio/config`, { equity: parseFloat(equity), strategy });
+      await refreshPortfolio();
+    } catch (e) {
+      console.error(e);
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fade-up" style={{ padding: '20px' }}>
+      <h2 style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Activity color="var(--green)" /> Portfolio Strategy Simulator
+      </h2>
+      <div className="panel" style={{ maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div>
+          <div className="label">Initial Equity Capital ($)</div>
+          <input 
+            type="number" 
+            className="input" 
+            style={{ width: '100%', fontSize: '1.2rem', padding: '12px' }} 
+            value={equity} 
+            onChange={e => setEquity(e.target.value)} 
+          />
+        </div>
+        <div>
+          <div className="label">Trading Strategy Engine</div>
+          <select 
+            className="input" 
+            style={{ width: '100%', fontSize: '1rem', padding: '12px', background: 'var(--bg)', color: 'white' }}
+            value={strategy}
+            onChange={e => setStrategy(e.target.value)}
+          >
+            <option value="ai_quant">AI Quant Model (Balanced - Default)</option>
+            <option value="trend_following">Trend Following (High Growth, Low Win Rate)</option>
+            <option value="mean_reversion">Mean Reversion (High Win Rate, Low Growth)</option>
+          </select>
+        </div>
+        <button 
+          className="btn" 
+          style={{ width: '100%', padding: '16px', fontSize: '1rem', background: 'var(--green)', color: '#000', marginTop: 10 }}
+          onClick={handleSimulate}
+          disabled={saving}
+        >
+          {saving ? 'SIMULATING...' : 'RUN SIMULATION & UPDATE PORTFOLIO'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Journal / P&L Tab ──────────────────────────────────────
+
+function JournalTab({ portfolio }) {
+  const [journal, setJournal] = useState(null);
+  const [form, setForm] = useState({ ticker: '', action: 'BUY', price: '', quantity: '', signal: '', notes: '' });
+  const [exitPrice, setExitPrice] = useState({});
+  const [telegram, setTelegram] = useState({ bot_token: '', chat_id: '' });
+  const [tgStatus, setTgStatus] = useState('');
+  const [alpaca, setAlpaca] = useState({ api_key: '', secret_key: '' });
+  const [alpacaStatus, setAlpacaStatus] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Kelly Sizer State
+  const [kellyTicker, setKellyTicker] = useState('');
+  const [kellyConviction, setKellyConviction] = useState(65);
+  const [kellyRes, setKellyRes] = useState(null);
+  const [kellyLoading, setKellyLoading] = useState(false);
+
+  const load = () => axios.get(`${API}/api/journal`).then(r => setJournal(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const handleLogTrade = async () => {
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/api/journal/trade`, { ...form, price: parseFloat(form.price), quantity: parseFloat(form.quantity) });
+      setForm({ ticker: '', action: 'BUY', price: '', quantity: '', signal: '', notes: '' });
+      load();
+    } catch (e) { console.error(e); }
+    setSubmitting(false);
+  };
+
+  const handleClose = async (tradeId) => {
+    const ep = parseFloat(exitPrice[tradeId]);
+    if (!ep) return;
+    await axios.post(`${API}/api/journal/trade/${tradeId}/close`, { exit_price: ep });
+    load();
+  };
+
+  const handleSaveTelegram = async () => {
+    setTgStatus('Saving...');
+    await axios.post(`${API}/api/telegram/config`, telegram);
+    setTgStatus('Saved!');
+  };
+
+  const handleSaveAlpaca = async () => {
+    setAlpacaStatus('Saving keys...');
+    await axios.post(`${API}/api/alpaca/config`, alpaca);
+    setAlpacaStatus('Keys Secured!');
+  };
+
+  const handleTestTelegram = async () => {
+    setTgStatus('Sending test...');
+    const r = await axios.post(`${API}/api/telegram/test`);
+    setTgStatus(r.data.status || r.data.error || 'Done');
+  };
+
+  const handleCalculateKelly = async () => {
+    if (!kellyTicker) return;
+    setKellyLoading(true);
+    try {
+      const eq = summary.current_equity || portfolio.equity || 10000;
+      const res = await axios.get(`${API}/api/kelly?ticker=${kellyTicker}&equity=${eq}&conviction=${kellyConviction}`);
+      setKellyRes(res.data);
+    } catch (e) { console.error(e); }
+    setKellyLoading(false);
+  };
+
+  const summary = journal?.summary || {};
+  const curve = journal?.equity_curve || [];
+  const trades = journal?.trades || [];
+
+  return (
+    <div className="fade-up" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><TrendingUp color="var(--green)" /> Trade Journal & Position Sizer</h2>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+        
+        {/* Left Column: Summary & Journal */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {[
+              { label: 'Current Equity', val: `$${(summary.current_equity || portfolio.equity || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`, color: 'var(--green)' },
+              { label: 'Total P&L', val: `${(summary.total_pnl || 0) >= 0 ? '+' : ''}$${(summary.total_pnl || 0).toFixed(2)}`, color: (summary.total_pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+              { label: 'Win Rate', val: `${summary.win_rate || 0}%`, color: 'var(--blue)' },
+              { label: 'Open / Closed', val: `${summary.open_trades || 0} / ${summary.closed_trades || 0}`, color: 'var(--muted)' },
+            ].map(c => (
+              <div key={c.label} className="panel" style={{ padding: 16 }}>
+                <div className="label">{c.label}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: '1.3rem', color: c.color, marginTop: 6 }}>{c.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Equity Curve */}
+          {curve.length > 1 && (
+            <div className="panel">
+              <div className="section-title"><Activity size={14} /> Equity Curve</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={curve}>
+                  <defs>
+                    <linearGradient id="jrnlGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--green)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--green)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--muted)' }} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
+                  <Tooltip formatter={(v) => [`$${v.toLocaleString()}`, 'Equity']} contentStyle={{ background: '#0d1117', border: '1px solid var(--border)', fontSize: 12 }} />
+                  <Area type="monotone" dataKey="equity" stroke="var(--green)" fill="url(#jrnlGrad)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Log New Trade */}
+          <div className="panel">
+            <div className="section-title"><Zap size={14} /> Log New Trade</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div className="label">Ticker</div>
+                <input className="input" style={{ width: '100%' }} placeholder="e.g. AAPL" value={form.ticker} onChange={e => setForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))} />
+              </div>
+              <div>
+                <div className="label">Action</div>
+                <select className="input" style={{ width: '100%', background: 'var(--bg)', color: 'white' }} value={form.action} onChange={e => setForm(f => ({ ...f, action: e.target.value }))}>
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                </select>
+              </div>
+              <div>
+                <div className="label">Entry Price ($)</div>
+                <input className="input" style={{ width: '100%' }} type="number" placeholder="e.g. 175.50" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+              </div>
+              <div>
+                <div className="label">Quantity (shares)</div>
+                <input className="input" style={{ width: '100%' }} type="number" placeholder="e.g. 10" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
+              </div>
+              <div>
+                <div className="label">Signal (optional)</div>
+                <input className="input" style={{ width: '100%' }} placeholder="e.g. STRONG BUY" value={form.signal} onChange={e => setForm(f => ({ ...f, signal: e.target.value }))} />
+              </div>
+              <div>
+                <div className="label">Notes (optional)</div>
+                <input className="input" style={{ width: '100%' }} placeholder="Reason for trade..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              </div>
+            </div>
+            <button className="btn" style={{ marginTop: 14, background: 'var(--green)', color: '#000' }} onClick={handleLogTrade} disabled={submitting || !form.ticker || !form.price || !form.quantity}>
+              {submitting ? 'LOGGING...' : '+ LOG TRADE'}
+            </button>
+          </div>
+          
+          {/* Trade History */}
+          <div className="panel">
+            <div className="section-title"><FileText size={14} /> Trade History</div>
+            {trades.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No trades logged yet.</div> : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th><th>Ticker</th><th>Action</th><th>Entry $</th><th>Qty</th><th>Signal</th><th>Exit $</th><th>P&L</th><th>Close</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trades.map(t => (
+                    <tr key={t.id}>
+                      <td style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{t.timestamp?.slice(0, 10)}</td>
+                      <td style={{ fontWeight: 700 }}>{t.ticker}</td>
+                      <td><span style={{ color: t.action === 'BUY' ? 'var(--green)' : 'var(--red)', fontFamily: 'var(--mono)', fontSize: '0.75rem' }}>{t.action}</span></td>
+                      <td>${t.price?.toFixed(2)}</td>
+                      <td>{t.quantity}</td>
+                      <td style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{t.signal || '—'}</td>
+                      <td>{t.exit_price ? `$${t.exit_price.toFixed(2)}` : '—'}</td>
+                      <td style={{ color: t.pnl == null ? 'var(--muted)' : t.pnl >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: 'var(--mono)' }}>
+                        {t.pnl == null ? 'OPEN' : `${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}`}
+                      </td>
+                      <td>
+                        {t.open && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <input className="input" type="number" style={{ width: 80, fontSize: '0.75rem', padding: '4px 8px' }} placeholder="Exit $" value={exitPrice[t.id] || ''} onChange={e => setExitPrice(p => ({ ...p, [t.id]: e.target.value }))} />
+                            <button className="btn" style={{ fontSize: '0.7rem', padding: '4px 10px' }} onClick={() => handleClose(t.id)}>CLOSE</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Kelly Sizer & Telegram */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Kelly Position Sizer */}
+          <div className="panel" style={{ borderColor: 'var(--blue)' }}>
+            <div className="section-title" style={{ color: 'var(--blue)' }}><Crosshair size={14} /> Kelly Position Sizer</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text)', marginBottom: 16 }}>
+              Calculate the mathematically optimal position size to maximize growth while preventing ruin, based on AI conviction.
+            </div>
+            
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div className="label">Ticker</div>
+                <input className="input" style={{ width: '100%' }} placeholder="AAPL" value={kellyTicker} onChange={e => setKellyTicker(e.target.value.toUpperCase())} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="label">AI Conviction %</div>
+                <input className="input" style={{ width: '100%' }} type="number" value={kellyConviction} onChange={e => setKellyConviction(e.target.value)} />
+              </div>
+            </div>
+            
+            <button className="btn btn-blue" style={{ width: '100%' }} onClick={handleCalculateKelly} disabled={kellyLoading || !kellyTicker}>
+              {kellyLoading ? 'CALCULATING...' : 'CALCULATE OPTIMAL SIZE'}
+            </button>
+            
+            {kellyRes && !kellyRes.error && (
+              <div style={{ marginTop: 16, background: 'rgba(59,130,246,0.1)', padding: 12, borderRadius: 8, border: '1px solid rgba(59,130,246,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Recommended Allocation:</span>
+                  <span style={{ fontFamily: 'var(--mono)', color: 'var(--blue)', fontWeight: 'bold' }}>{kellyRes.recommended_allocation_pct}%</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Investment Amount:</span>
+                  <span style={{ fontFamily: 'var(--mono)', color: 'white' }}>${kellyRes.recommended_dollars.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Recommended Shares:</span>
+                  <span style={{ fontFamily: 'var(--mono)', color: 'white' }}>{kellyRes.recommended_shares} shares</span>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '12px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--green)' }}>Take Profit (+{kellyRes.take_profit_pct}%):</span>
+                  <span style={{ fontFamily: 'var(--mono)', color: 'var(--green)', fontSize: '0.8rem' }}>+${kellyRes.target_gain_dollars}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--red)' }}>Stop Loss (-{kellyRes.stop_loss_pct}%):</span>
+                  <span style={{ fontFamily: 'var(--mono)', color: 'var(--red)', fontSize: '0.8rem' }}>-${kellyRes.max_loss_dollars}</span>
+                </div>
+              </div>
+            )}
+            {kellyRes && kellyRes.error && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: '0.8rem' }}>Error: {kellyRes.error}</div>}
+          </div>
+
+          {/* Telegram Config */}
+          <div className="panel">
+            <div className="section-title"><Zap size={14} /> Telegram Alert Integration</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
+              <div>
+                <div className="label">Bot Token</div>
+                <input className="input" style={{ width: '100%' }} type="password" placeholder="1234567890:ABCDef..." value={telegram.bot_token} onChange={e => setTelegram(t => ({ ...t, bot_token: e.target.value }))} />
+              </div>
+              <div>
+                <div className="label">Chat ID</div>
+                <input className="input" style={{ width: '100%' }} placeholder="e.g. -1001234567890" value={telegram.chat_id} onChange={e => setTelegram(t => ({ ...t, chat_id: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button className="btn" onClick={handleSaveTelegram}>SAVE CONFIG</button>
+              <button className="btn btn-blue" onClick={handleTestTelegram}>SEND TEST</button>
+            </div>
+            {tgStatus && <div style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', marginTop: 10, color: tgStatus.includes('sent') || tgStatus.includes('Saved') ? 'var(--green)' : 'var(--amber)' }}>{tgStatus}</div>}
+            <div style={{ marginTop: 12, fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.7 }}>
+              Auto-alerts are triggered when AI Conviction is ≥ 75%.
+            </div>
+          </div>
+
+          {/* Alpaca API Config */}
+          <div className="panel" style={{ borderColor: 'var(--green)' }}>
+            <div className="section-title" style={{ color: 'var(--green)' }}><Zap size={14} /> Live Broker Integration (Alpaca)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text)', marginBottom: 16 }}>
+              Connect your Alpaca Paper Trading account for fully autonomous Hedge Fund execution.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
+              <div>
+                <div className="label">API Key</div>
+                <input className="input" style={{ width: '100%' }} type="password" placeholder="PKBXXXXXXX..." value={alpaca.api_key} onChange={e => setAlpaca(a => ({ ...a, api_key: e.target.value }))} />
+              </div>
+              <div>
+                <div className="label">Secret Key</div>
+                <input className="input" style={{ width: '100%' }} type="password" placeholder="xxxxxxxxxxxxxx" value={alpaca.secret_key} onChange={e => setAlpaca(a => ({ ...a, secret_key: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button className="btn" style={{ background: 'var(--green)', color: '#000' }} onClick={handleSaveAlpaca}>CONNECT BROKER</button>
+              {alpacaStatus && <span style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: 'var(--green)' }}>{alpacaStatus}</span>}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -683,18 +1295,25 @@ function Sidebar({ portfolio }) {
 // ─── Main App ────────────────────────────────────────────────
 
 export default function App() {
-  const [tab, setTab] = useState('terminal');
+  const [tab, setTab] = useState('home');
   const [portfolio, setPortfolio] = useState({ equity: 0, daily_change: '+0%', win_rate: '0%', sharpe_ratio: '0', max_drawdown: '0%', total_trades: 0 });
 
+  const refreshPortfolio = () => {
+    return axios.get(`${API}/api/portfolio`).then(r => setPortfolio(r.data)).catch(() => {});
+  };
+
   useEffect(() => {
-    axios.get(`${API}/api/portfolio`).then(r => setPortfolio(r.data)).catch(() => {});
-    const id = setInterval(() => axios.get(`${API}/api/portfolio`).then(r => setPortfolio(r.data)).catch(() => {}), 30000);
+    refreshPortfolio();
+    const id = setInterval(refreshPortfolio, 30000);
     return () => clearInterval(id);
   }, []);
 
   const TABS = [
+    { id: 'home', label: '🏠 DASHBOARD', icon: Home },
     { id: 'terminal', label: '⚡ TERMINAL', icon: Crosshair },
     { id: 'signals', label: '📡 SIGNALS', icon: Zap },
+    { id: 'journal', label: '📒 JOURNAL', icon: TrendingUp },
+    { id: 'simulator', label: '🎛️ SIMULATOR', icon: Activity },
     { id: 'optimizer', label: '📐 OPTIMIZER', icon: Target },
     { id: 'backtest', label: '📊 BACKTEST', icon: BarChart2 },
     { id: 'audit', label: '📋 AUDIT LOG', icon: FileText },
@@ -704,11 +1323,10 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Navbar */}
       <nav className="navbar">
-        <div className="logo">
-          <ShieldCheck size={20} color="var(--green)" />
-          AlphaQuant <span>Shariah</span>
+        <div className="logo" style={{ gap: '16px', alignItems: 'center' }}>
+          <img src={logoImg} alt="MHT Logo" style={{ height: '54px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.7)) drop-shadow(0 0 2px rgba(255,255,255,0.8))' }} />
+          MyHalal<span>Trade</span>
         </div>
-        <WatchlistStrip />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--muted)' }}>
             <span className="live-dot" /> LIVE
@@ -723,12 +1341,18 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Moving Ticker below Navbar */}
+      <WatchlistStrip />
+
       {/* Body */}
       <div className="layout">
         <Sidebar portfolio={portfolio} />
         <div className="main-content">
+          {tab === 'home' && <HomeTab />}
           {tab === 'terminal' && <TerminalTab portfolio={portfolio} />}
           {tab === 'signals' && <SignalsTab />}
+          {tab === 'journal' && <JournalTab portfolio={portfolio} />}
+          {tab === 'simulator' && <SimulatorTab refreshPortfolio={refreshPortfolio} portfolio={portfolio} />}
           {tab === 'optimizer' && <OptimizerTab />}
           {tab === 'backtest' && <BacktestTab />}
           {tab === 'audit' && <AuditTab />}

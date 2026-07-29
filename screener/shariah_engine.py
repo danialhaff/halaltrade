@@ -37,6 +37,23 @@ class ShariahEngine:
         )
         return is_compliant
 
+    def screen_etf(self, symbol: str) -> bool:
+        """
+        Screens an ETF or Commodity. ONLY manual whitelist is allowed because 
+        we cannot parse all underlying holdings programmatically yet.
+        """
+        from core.config import ETF_WHITELIST
+        is_compliant = symbol.upper() in [e.upper() for e in ETF_WHITELIST]
+        reason = "Pass: In Islamic ETF/Commodity whitelist" if is_compliant else f"Fail: {symbol} ETF not in manual whitelist"
+        
+        log_screening_result(
+            ticker=symbol,
+            asset_class='etf',
+            is_compliant=is_compliant,
+            reasoning=reason
+        )
+        return is_compliant
+
     def screen_stock(self, ticker: str) -> bool:
         """
         Screens a stock using AAOIFI financial ratio screens and business activity screens.

@@ -25,22 +25,50 @@ class NLPEngine:
             limit = min(8, len(news))
             for i in range(limit):
                 article = news[i]
-                title = article.get('title', '')
-                if title:
-                    sentiment = self.analyzer.polarity_scores(title)
-                    total_compound += sentiment['compound']
-                    
-                    # Convert unix timestamp to readable string if available
+                
+                # Support for new and old yfinance news formats
+                if 'content' in article:
+                    content = article['content']
+                    title = content.get('title', '')
+                    # Convert pubDate to readable time
+                    pub_time = content.get('pubDate', '')
+                    time_str = pub_time[:10] if pub_time else ""
+                    publisher = content.get('provider', {}).get('displayName', 'News')
+                    link_obj = content.get('clickThroughUrl') or content.get('canonicalUrl') or {}
+                    link = link_obj.get('url', '#')
+                else:
+                    title = article.get('title', '')
                     pub_time = article.get('providerPublishTime', 0)
                     time_str = ""
                     if pub_time:
                         time_str = time.strftime('%Y-%m-%d %H:%M', time.localtime(pub_time))
-                        
+                    publisher = article.get('publisher', 'News')
+                    link = article.get('link', '#')
+
+                if title:
+                    sentiment = self.analyzer.polarity_scores(title)
+                    total_compound += sentiment['compound']
+
+                    # Generate AI Remark based on Sentiment and Keywords
+                    title_lower = title.lower()
+                    effect = "Neutral impact expected."
+                    if "rate" in title_lower or "fed" in title_lower or "inflation" in title_lower or "cpi" in title_lower:
+                        effect = "High volatility expected. Impacts rate-sensitive assets."
+                    elif "earnings" in title_lower or "revenue" in title_lower:
+                        effect = "Sector-specific volatility based on earnings surprise."
+                    elif "war" in title_lower or "geopolitical" in title_lower or "strike" in title_lower:
+                        effect = "Negative for equities. Bullish for commodities (Gold/Oil)."
+                    elif sentiment['compound'] > 0.4:
+                        effect = "Bullish sentiment. Positive momentum expected."
+                    elif sentiment['compound'] < -0.4:
+                        effect = "Bearish sentiment. Downside risk alert."
+
                     headlines.append({
                         "title": title,
-                        "publisher": article.get('publisher', 'News'),
-                        "link": article.get('link', '#'),
-                        "time": time_str
+                        "publisher": publisher,
+                        "link": link,
+                        "time": time_str,
+                        "effect": effect
                     })
             
             # Average compound score (-1 to +1)

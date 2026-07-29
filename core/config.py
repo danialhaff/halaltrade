@@ -33,6 +33,16 @@ CRYPTO_WHITELIST = [
     "ETH",
 ]
 
+# ETF and Commodity Whitelist (Islamic Indices & Precious Metals)
+ETF_WHITELIST = [
+    "SPUS",  # SP Funds S&P 500 Sharia Industry Exclusions ETF
+    "HLAL",  # Wahed FTSE USA Shariah ETF
+    "UMMA",  # Wahed Dow Jones Islamic World ETF
+    "SPSK",  # SP Funds Dow Jones Global Sukuk ETF
+    "GLD",   # SPDR Gold Trust (Commodity)
+    "SLV",   # iShares Silver Trust (Commodity)
+]
+
 # Database Config
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "shariah_audit.db")
 DB_URL = os.getenv("DB_URL", f"sqlite:///{DB_PATH}")

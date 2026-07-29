@@ -80,11 +80,25 @@ body {
 .logo span { color: var(--green); }
 
 /* ── Ticker Strip ── */
-.ticker-strip {
-  display: flex; gap: 24px; overflow-x: auto; padding: 8px 0;
-  scrollbar-width: none;
+.ticker-strip-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
 }
-.ticker-strip::-webkit-scrollbar { display: none; }
+
+@keyframes marqueeLeftToRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+.ticker-strip {
+  display: flex; gap: 40px; padding: 8px 0;
+  width: max-content;
+  animation: marqueeLeftToRight 60s linear infinite;
+}
+.ticker-strip:hover {
+  animation-play-state: paused;
+}
 .ticker-item { display: flex; flex-direction: column; align-items: center; min-width: 80px; cursor: pointer; }
 .ticker-item:hover .ticker-symbol { color: var(--green); }
 .ticker-symbol { font-family: var(--mono); font-size: 0.75rem; font-weight: 600; color: var(--muted); }

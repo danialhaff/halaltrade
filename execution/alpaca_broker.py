@@ -1,43 +1,70 @@
 import sys
 import os
+import requests
+from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL, is_live_trading_enabled
 from execution.broker_interface import BrokerInterface
 
 class AlpacaBroker(BrokerInterface):
     def __init__(self):
-        self.api_key = ALPACA_API_KEY
-        self.secret_key = ALPACA_SECRET_KEY
-        self.base_url = ALPACA_BASE_URL
+        # Always reload dotenv so it picks up newly saved keys
+        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+        load_dotenv(env_file, override=True)
         
-        # Security Check
-        if is_live_trading_enabled() and "paper" in self.base_url:
-            print("WARNING: LIVE TRADING is enabled but Alpaca URL is set to PAPER.")
+        self.api_key = os.getenv("ALPACA_API_KEY", "")
+        self.secret_key = os.getenv("ALPACA_SECRET_KEY", "")
+        self.base_url = "https://paper-api.alpaca.markets" # Hardcode to paper for safety
             
     def submit_order(self, ticker: str, action: str, qty: float, order_type: str = "market") -> dict:
         """
-        Submits an order to Alpaca via REST API (Mocked for safety).
+        Submits a LIVE paper order to Alpaca via REST API.
         """
         print(f"\n[ALPACA API] -> POST {self.base_url}/v2/orders")
         
-        # The exact payload Alpaca expects
+        if not self.api_key or not self.secret_key:
+            print("[ALPACA API] Error: API keys not configured. Trade blocked.")
+            return {"status": "failed", "reason": "No API keys configured"}
+
         payload = {
-            "symbol": ticker,
+            "symbol": ticker.upper(),
             "qty": qty,
             "side": action.lower(),
             "type": order_type,
             "time_in_force": "day"
         }
-        print(f"[ALPACA API] Payload: {payload}")
         
-        if self.api_key == "dummy_alpaca_key":
-            print("[ALPACA API] Error: API keys not configured.")
-            return {"status": "failed", "reason": "No API keys"}
-            
-        # Mock successful response
-        print(f"[ALPACA API] ✅ Order Submitted to Broker: {action} {qty} {ticker}")
-        return {"status": "accepted", "id": "alpaca_mock_id_123"}
+        headers = {
+            "APCA-API-KEY-ID": self.api_key,
+            "APCA-API-SECRET-KEY": self.secret_key,
+            "accept": "application/json",
+            "content-type": "application/json"
+        }
+        
+        try:
+            res = requests.post(f"{self.base_url}/v2/orders", json=payload, headers=headers, timeout=10)
+            if res.status_code in [200, 201]:
+                data = res.json()
+                print(f"[ALPACA API] ✅ Order Accepted: {data['id']}")
+                return {"status": "accepted", "id": data["id"]}
+            else:
+                print(f"[ALPACA API] ❌ Order Rejected: {res.text}")
+                return {"status": "failed", "reason": res.text}
+        except Exception as e:
+            print(f"[ALPACA API] Exception: {e}")
+            return {"status": "failed", "reason": str(e)}
 
     def get_balance(self) -> float:
+        if not self.api_key:
+            return 10000.0
+        headers = {
+            "APCA-API-KEY-ID": self.api_key,
+            "APCA-API-SECRET-KEY": self.secret_key
+        }
+        try:
+            res = requests.get(f"{self.base_url}/v2/account", headers=headers, timeout=10)
+            if res.status_code == 200:
+                return float(res.json().get('equity', 10000.0))
+        except:
+            pass
         return 10000.0

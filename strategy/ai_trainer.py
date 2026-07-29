@@ -11,8 +11,21 @@ from sklearn.metrics import accuracy_score, classification_report
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# The same watchlist from our signals tab
-WATCHLIST = ["AAPL", "NVDA", "MSFT", "TSLA", "AMZN", "GOOGL", "META", "V", "MA", "ADBE"]
+# Expanded Global Halal watchlist
+WATCHLIST = [
+    # US Tech & Global Giants
+    "AAPL", "NVDA", "MSFT", "TSLA", "AMZN", "GOOGL", "META", "AVGO", "ADBE", "CRM", "AMD", "QCOM", "ASML",
+    # China (ADRs)
+    "BABA", "PDD", "JD", "BIDU", "NTES", "LI",
+    # Malaysia (Bursa - using .KL suffix)
+    "5183.KL", "6033.KL", "5225.KL", "0166.KL", "7277.KL", "5168.KL", "7113.KL", "4707.KL", "4197.KL", "1961.KL",
+    # Other Shariah-Compliant US / Global 
+    "JNJ", "PFE", "NKE", "PEP", "KO", "MCD", "SBUX", "LULU", "INTC",
+    # Crypto (Shariah Scholars allowed list)
+    "BTC-USD", "ETH-USD",
+    # Islamic Indices & Commodities
+    "SPUS", "HLAL", "UMMA", "SPSK", "GLD", "SLV"
+]
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "xgboost_brain.pkl")
 
 def get_data_and_features(ticker: str, period="5y"):
@@ -20,6 +33,10 @@ def get_data_and_features(ticker: str, period="5y"):
     df = yf.download(ticker, period=period, progress=False, auto_adjust=True)
     if df.empty or len(df) < 250:
         return pd.DataFrame()
+        
+    # Flatten MultiIndex if present (yfinance latest version returns MultiIndex even for 1 ticker)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
     
     # We must squeeze to ensure it's a Series, not a DataFrame, if auto_adjust is True
     # In recent yfinance, df['Close'] might be a DataFrame if multiple tickers, but we pass one
@@ -82,6 +99,8 @@ def train_model():
         return
         
     master_df = pd.concat(all_data)
+    # Clean inf values which crash XGBoost
+    master_df = master_df.replace([np.inf, -np.inf], np.nan).dropna()
     print(f"Total training rows generated: {len(master_df)}")
     
     # Features we will use for the AI
@@ -97,6 +116,10 @@ def train_model():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
     
     print("Training XGBoost Classifier...")
+    # Explicitly set column names to avoid MultiIndex or string conversion issues (trailing spaces)
+    X_train.columns = feature_cols
+    X_test.columns = feature_cols
+    
     model = XGBClassifier(
         n_estimators=100,
         learning_rate=0.05,
