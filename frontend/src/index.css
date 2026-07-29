@@ -225,3 +225,23 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ── Hamburger Menu ── */
+.hamburger-btn { display: none; cursor: pointer; color: var(--text); }
+.nav-links { display: flex; align-items: center; gap: 16px; }
+
+@media (max-width: 768px) {
+  .hamburger-btn { display: block; }
+  .navbar { flex-direction: column; align-items: flex-start; padding: 12px 20px; }
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    align-items: stretch;
+    margin-top: 16px;
+    gap: 12px;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links .tabs { flex-direction: column; width: 100%; }
+  .nav-links .tab { width: 100%; text-align: left; padding: 12px; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+}

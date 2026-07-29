@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Crosshair, ShieldCheck, Zap, BarChart2, Activity, Target, AlertTriangle, FileText, Home, TrendingUp, Globe, RefreshCw
+  Crosshair, ShieldCheck, Zap, BarChart2, Activity, Target, AlertTriangle, FileText, Home, TrendingUp, Globe, RefreshCw, Menu, X
 } from 'lucide-react';
 import axios from 'axios';
 import logoImg from './logo.png';
@@ -1296,6 +1296,7 @@ function Sidebar({ portfolio }) {
 
 export default function App() {
   const [tab, setTab] = useState('home');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [portfolio, setPortfolio] = useState({ equity: 0, daily_change: '+0%', win_rate: '0%', sharpe_ratio: '0', max_drawdown: '0%', total_trades: 0 });
 
   const refreshPortfolio = () => {
@@ -1323,17 +1324,22 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Navbar */}
       <nav className="navbar">
-        <div className="logo" style={{ gap: '16px', alignItems: 'center' }}>
-          <img src={logoImg} alt="MHT Logo" style={{ height: '54px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.7)) drop-shadow(0 0 2px rgba(255,255,255,0.8))' }} />
-          MyHalal<span>Trade</span>
+        <div className="logo" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img src={logoImg} alt="MHT Logo" style={{ height: '54px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.7)) drop-shadow(0 0 2px rgba(255,255,255,0.8))' }} />
+            <div>MyHalal<span style={{color: 'var(--green)'}}>Trade</span></div>
+          </div>
+          <div className="hamburger-btn" onClick={() => setMenuOpen(!menuOpen)}>
+            {menuOpen ? <X size={28} /> : <Menu size={28} />}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--muted)' }}>
+        <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: '0.7rem', color: 'var(--muted)', alignSelf: 'center' }}>
             <span className="live-dot" /> LIVE
           </div>
           <div className="tabs">
             {TABS.map(t => (
-              <button key={t.id} id={`tab-${t.id}`} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
+              <button key={t.id} id={`tab-${t.id}`} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => { setTab(t.id); setMenuOpen(false); }}>
                 {t.label}
               </button>
             ))}
