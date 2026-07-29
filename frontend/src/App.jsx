@@ -11,7 +11,7 @@ import {
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import './index.css';
 
-const API = 'http://localhost:8000';
+const API = 'https://halaltrade.onrender.com';
 
 // ─── Helper Components ──────────────────────────────────────
 
