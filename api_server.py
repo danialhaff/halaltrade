@@ -213,7 +213,7 @@ def get_signals():
             return {"ticker": ticker, "signal": "ERROR", "conviction": 0, "error": str(e)}
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(fetch_signal, WATCHLIST))
 
     results.sort(key=lambda x: x.get("conviction", 0), reverse=True)
@@ -295,7 +295,7 @@ def get_watchlist():
             return {"ticker": ticker, "price": 0, "change_pct": 0, "error": str(e)}
 
     data = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         raw_data = list(executor.map(fetch_market_data, WATCHLIST))
         data = [d for d in raw_data if "error" not in d]
 
@@ -852,7 +852,7 @@ def get_earnings_calendar():
             return None
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         raw = list(executor.map(fetch_earnings, stock_tickers[:20]))  # Limit to 20
     results = [r for r in raw if r is not None]
     results.sort(key=lambda x: x["next_earnings"])
